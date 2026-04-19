@@ -55,6 +55,22 @@ def health() -> dict:
     return {"status": "ok"}
 
 
+@app.get("/api/browse")
+def browse_folder() -> dict:
+    """Open a native OS folder-picker dialog and return the chosen path."""
+    try:
+        import tkinter as tk
+        from tkinter import filedialog
+        root = tk.Tk()
+        root.withdraw()
+        root.attributes("-topmost", True)
+        path = filedialog.askdirectory(title="Select photo folder")
+        root.destroy()
+        return {"path": path or ""}
+    except Exception as e:
+        raise HTTPException(500, f"Could not open folder picker: {e}")
+
+
 @app.post("/api/scan")
 async def scan(req: ScanRequest) -> StreamingResponse:
     """Stream scan progress as server-sent events."""

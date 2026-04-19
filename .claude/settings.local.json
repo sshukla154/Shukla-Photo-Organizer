@@ -3,7 +3,8 @@
     "allow": [
       "mcp__Claude_Preview__preview_start",
       "Bash(pip install *)",
-      "Bash(npm install *)"
+      "Bash(npm install *)",
+      "Bash(node -e \"const fs=require\\('fs'\\); const f='src/App.jsx'; const t=fs.readFileSync\\(f,'utf8'\\); fs.writeFileSync\\(f,t\\);\")"
     ]
   }
 }

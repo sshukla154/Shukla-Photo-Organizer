@@ -7,14 +7,14 @@ import TrashView from './components/TrashView.jsx';
 import ExportView from './components/ExportView.jsx';
 
 const TABS = [
-  { key: 'results', label: 'Results' },
-  { key: 'events', label: 'Events' },
-  { key: 'trash', label: 'Trash' },
-  { key: 'export', label: 'Export' },
+  { key: 'results', label: 'Results', icon: '⊞' },
+  { key: 'events',  label: 'Events',  icon: '📅' },
+  { key: 'trash',   label: 'Trash',   icon: '🗑' },
+  { key: 'export',  label: 'Export',  icon: '↗' },
 ];
 
 export default function App() {
-  const [view, setView] = useState('picker'); // 'picker' | 'scanning' | 'results' | 'events' | 'trash' | 'export'
+  const [view, setView] = useState('picker');
   const [folder, setFolder] = useState('');
   const [tab, setTab] = useState('results');
 
@@ -24,12 +24,10 @@ export default function App() {
     <div className="app">
       {view === 'picker' && (
         <FolderPicker
-          onStart={(path) => {
-            setFolder(path);
-            setView('scanning');
-          }}
+          onStart={(path) => { setFolder(path); setView('scanning'); }}
         />
       )}
+
       {view === 'scanning' && (
         <ScanProgress
           folder={folder}
@@ -37,41 +35,36 @@ export default function App() {
           onCancel={() => setView('picker')}
         />
       )}
+
       {isMain && (
         <>
           <div className="top-bar">
             <div className="folder-label">
-              <span className="muted" style={{ fontSize: 12 }}>Folder</span>
-              <span className="folder-path">{folder}</span>
+              <span className="folder-label-cap">Folder</span>
+              <span className="folder-path" title={folder}>{folder}</span>
             </div>
             <div style={{ display: 'flex', gap: 8 }}>
               <button onClick={() => setView('picker')}>Change folder</button>
-              <button onClick={() => setView('scanning')}>Rescan</button>
+              <button className="primary" onClick={() => setView('scanning')}>Rescan</button>
             </div>
           </div>
+
           <div className="tab-row">
-            {TABS.map(({ key, label }) => (
+            {TABS.map(({ key, label, icon }) => (
               <button
                 key={key}
                 className={`tab-btn ${tab === key ? 'active' : ''}`}
                 onClick={() => setTab(key)}
               >
-                {label}
+                {icon} {label}
               </button>
             ))}
           </div>
-          {tab === 'results' && (
-            <ResultsView folder={folder} />
-          )}
-          {tab === 'events' && (
-            <EventsView folder={folder} />
-          )}
-          {tab === 'trash' && (
-            <TrashView folder={folder} />
-          )}
-          {tab === 'export' && (
-            <ExportView folder={folder} />
-          )}
+
+          {tab === 'results' && <ResultsView folder={folder} />}
+          {tab === 'events'  && <EventsView  folder={folder} />}
+          {tab === 'trash'   && <TrashView   folder={folder} />}
+          {tab === 'export'  && <ExportView  folder={folder} />}
         </>
       )}
     </div>

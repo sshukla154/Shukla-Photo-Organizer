@@ -1,5 +1,14 @@
 import { useEffect, useRef, useState } from 'react';
 
+const PHASE_LABELS = {
+  init: 'Starting…',
+  discovered: 'Discovered photos',
+  analyzed: 'Analyzing',
+  grouping: 'Grouping',
+  grouped: 'Grouped',
+  done: 'Complete',
+};
+
 export default function ScanProgress({ folder, onDone, onCancel }) {
   const [status, setStatus] = useState('Starting…');
   const [progress, setProgress] = useState({ current: 0, total: 0 });
@@ -21,8 +30,7 @@ export default function ScanProgress({ folder, onDone, onCancel }) {
         });
 
         if (!res.ok) {
-          const text = await res.text();
-          setStatus(`Error: ${text}`);
+          setStatus(`Error: ${await res.text()}`);
           return;
         }
 
@@ -34,19 +42,12 @@ export default function ScanProgress({ folder, onDone, onCancel }) {
           const { value, done } = await reader.read();
           if (done) break;
           buffer += decoder.decode(value, { stream: true });
-
           const parts = buffer.split('\n\n');
-          buffer = parts.pop();  // keep incomplete tail
-
+          buffer = parts.pop();
           for (const part of parts) {
             const line = part.replace(/^data:\s*/, '').trim();
             if (!line) continue;
-            try {
-              const evt = JSON.parse(line);
-              handleEvent(evt);
-            } catch (e) {
-              console.warn('Bad event:', line);
-            }
+            try { handleEvent(JSON.parse(line)); } catch {}
           }
         }
         onDone();
@@ -59,7 +60,7 @@ export default function ScanProgress({ folder, onDone, onCancel }) {
       setPhase(evt.phase);
       if (evt.phase === 'discovered') {
         setProgress({ current: 0, total: evt.total });
-        setStatus(`Found ${evt.total} photos`);
+        setStatus(`Found ${evt.total.toLocaleString()} photos`);
       } else if (evt.phase === 'analyzed') {
         setProgress({ current: evt.index, total: evt.total });
         setStatus(`Analyzing ${evt.filename}`);
@@ -68,15 +69,15 @@ export default function ScanProgress({ folder, onDone, onCancel }) {
           if (evt.flags.blurry) flags.push('blurry');
           if (evt.flags.document) flags.push('document');
           if (evt.flags.screenshot) flags.push('screenshot');
-          const label = flags.length ? `${evt.filename} — ${flags.join(', ')}` : evt.filename;
-          return [label, ...r].slice(0, 8);
+          return [{ name: evt.filename, flags }, ...r].slice(0, 6);
         });
       } else if (evt.phase === 'grouping') {
         setStatus(`Grouping ${evt.step}…`);
       } else if (evt.phase === 'grouped') {
-        setStatus(`Found ${evt.count} ${evt.step} groups`);
+        const note = evt.note ? ` (${evt.note})` : '';
+        setStatus(`Found ${evt.count} ${evt.step} group${evt.count !== 1 ? 's' : ''}${note}`);
       } else if (evt.phase === 'done') {
-        setStatus('Done');
+        setStatus('Analysis complete');
       }
     }
 
@@ -84,32 +85,44 @@ export default function ScanProgress({ folder, onDone, onCancel }) {
     return () => controller.abort();
   }, [folder, onDone]);
 
-  const pct = progress.total ? (progress.current / progress.total) * 100 : 0;
+  const pct = progress.total ? Math.round((progress.current / progress.total) * 100) : 0;
+  const isDone = phase === 'done';
 
   return (
-    <div style={{ paddingTop: 40 }}>
-      <h1 style={{ fontSize: 20, fontWeight: 500, marginBottom: 4 }}>Scanning</h1>
-      <p className="muted" style={{ marginTop: 0, marginBottom: 20 }}>{folder}</p>
+    <div className="scan-wrap">
+      <div className="scan-header">
+        <h1>{isDone ? '✓ Scan complete' : 'Scanning…'}</h1>
+        <div className="scan-folder">{folder}</div>
+      </div>
 
       <div className="progress-bar">
-        <div className="progress-fill" style={{ width: `${pct}%` }} />
+        <div className="progress-fill" style={{ width: isDone ? '100%' : `${pct}%` }} />
       </div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 24 }}>
-        <span className="status-line">{status}</span>
-        <span className="muted" style={{ fontSize: 13 }}>
-          {progress.current} / {progress.total || '?'}
-        </span>
+      <div className="scan-meta">
+        <span className="scan-status">{status}</span>
+        {progress.total > 0 && (
+          <span className="scan-count">{progress.current.toLocaleString()} / {progress.total.toLocaleString()}</span>
+        )}
       </div>
 
-      <div style={{ background: 'var(--surface)', border: '0.5px solid var(--border)', borderRadius: 'var(--radius-lg)', padding: '12px 16px' }}>
-        <p className="muted" style={{ margin: '0 0 8px', fontSize: 12 }}>Recent</p>
-        {recent.length === 0 && <p className="muted" style={{ margin: 0, fontSize: 13 }}>Waiting for first result…</p>}
-        {recent.map((line, i) => (
-          <div key={i} className="status-line" style={{ padding: '2px 0' }}>{line}</div>
+      <div className="scan-log" style={{ marginTop: 20 }}>
+        <p className="scan-log-title">Recent files</p>
+        {recent.length === 0 && (
+          <div className="scan-log-line">Waiting for first result…</div>
+        )}
+        {recent.map((item, i) => (
+          <div key={i} className={`scan-log-line ${item.flags?.length ? 'flagged' : ''}`}>
+            {item.flags?.length ? `⚑ ` : '  '}{item.name}
+            {item.flags?.length > 0 && (
+              <span style={{ color: 'var(--text-tertiary)', marginLeft: 6 }}>
+                — {item.flags.join(', ')}
+              </span>
+            )}
+          </div>
         ))}
       </div>
 
-      <div style={{ marginTop: 24, textAlign: 'right' }}>
+      <div style={{ marginTop: 20, display: 'flex', justifyContent: 'flex-end' }}>
         <button onClick={onCancel}>Cancel</button>
       </div>
     </div>
