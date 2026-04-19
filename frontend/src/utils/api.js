@@ -1,3 +1,6 @@
+export const thumbnailUrl = (id, kind = 'thumb') =>
+  `/api/thumbnail?photo_id=${id}${kind !== 'thumb' ? `&kind=${kind}` : ''}`;
+
 export async function getGroups(folder) {
   const r = await fetch(`/api/groups?folder_path=${encodeURIComponent(folder)}`);
   return r.json();
