@@ -9,12 +9,47 @@ const PHASE_LABELS = {
   done: 'Complete',
 };
 
+function useElapsedTimer(running) {
+  const [elapsed, setElapsed] = useState(0);
+  const startRef = useRef(null);
+  const rafRef = useRef(null);
+
+  useEffect(() => {
+    if (!running) return;
+    startRef.current = Date.now() - elapsed * 1000;
+
+    function tick() {
+      setElapsed((Date.now() - startRef.current) / 1000);
+      rafRef.current = requestAnimationFrame(tick);
+    }
+    rafRef.current = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(rafRef.current);
+  }, [running]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  return elapsed;
+}
+
+function formatTime(secs) {
+  const h = Math.floor(secs / 3600);
+  const m = Math.floor((secs % 3600) / 60);
+  const s = Math.floor(secs % 60);
+  if (h > 0) return `${h}h ${String(m).padStart(2, '0')}m ${String(s).padStart(2, '0')}s`;
+  if (m > 0) return `${m}m ${String(s).padStart(2, '0')}s`;
+  return `${s}s`;
+}
+
 export default function ScanProgress({ folder, onDone, onCancel }) {
   const [status, setStatus] = useState('Starting…');
   const [progress, setProgress] = useState({ current: 0, total: 0 });
   const [phase, setPhase] = useState('init');
   const [recent, setRecent] = useState([]);
+  const [finalElapsed, setFinalElapsed] = useState(null);
   const abortRef = useRef(null);
+
+  const isDone = phase === 'done';
+  const timerRunning = phase !== 'init' && !isDone && finalElapsed === null;
+  const elapsed = useElapsedTimer(timerRunning);
+  const displayTime = finalElapsed ?? elapsed;
 
   useEffect(() => {
     const controller = new AbortController();
@@ -78,21 +113,45 @@ export default function ScanProgress({ folder, onDone, onCancel }) {
         setStatus(`Found ${evt.count} ${evt.step} group${evt.count !== 1 ? 's' : ''}${note}`);
       } else if (evt.phase === 'done') {
         setStatus('Analysis complete');
+        setFinalElapsed((Date.now() - (window.__scanStart || Date.now())) / 1000);
       }
     }
 
+    window.__scanStart = Date.now();
     run();
     return () => controller.abort();
   }, [folder, onDone]);
 
   const pct = progress.total ? Math.round((progress.current / progress.total) * 100) : 0;
-  const isDone = phase === 'done';
 
   return (
     <div className="scan-wrap">
       <div className="scan-header">
         <h1>{isDone ? '✓ Scan complete' : 'Scanning…'}</h1>
         <div className="scan-folder">{folder}</div>
+      </div>
+
+      {/* Timer */}
+      <div className="scan-timer" style={{
+        display: 'flex', alignItems: 'center', gap: 8,
+        margin: '10px 0',
+        fontSize: 13,
+        color: isDone ? 'var(--green-text)' : 'var(--text-muted)',
+        fontVariantNumeric: 'tabular-nums',
+      }}>
+        <span style={{ fontSize: 15 }}>{isDone ? '✓' : '⏱'}</span>
+        {isDone
+          ? `Completed in ${formatTime(displayTime)}`
+          : `Elapsed: ${formatTime(displayTime)}`}
+        {!isDone && progress.total > 0 && elapsed > 5 && (() => {
+          const rate = progress.current / elapsed; // photos/sec
+          const remaining = rate > 0 ? (progress.total - progress.current) / rate : null;
+          return remaining !== null
+            ? <span style={{ color: 'var(--text-tertiary)', marginLeft: 4 }}>
+                · ~{formatTime(remaining)} remaining
+              </span>
+            : null;
+        })()}
       </div>
 
       <div className="progress-bar">
@@ -123,7 +182,7 @@ export default function ScanProgress({ folder, onDone, onCancel }) {
       </div>
 
       <div style={{ marginTop: 20, display: 'flex', justifyContent: 'flex-end' }}>
-        <button onClick={onCancel}>Cancel</button>
+        {!isDone && <button onClick={onCancel}>Cancel</button>}
       </div>
     </div>
   );
