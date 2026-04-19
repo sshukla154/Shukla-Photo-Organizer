@@ -62,18 +62,26 @@ def browse_folder() -> dict:
 
     # Windows: use PowerShell FolderBrowserDialog (no extra deps)
     if sys.platform == "win32":
+        # Use a hidden topmost owner Form so the dialog always surfaces in front
         ps = (
             "Add-Type -AssemblyName System.Windows.Forms; "
+            "$owner = New-Object System.Windows.Forms.Form; "
+            "$owner.TopMost = $true; "
+            "$owner.StartPosition = 'CenterScreen'; "
+            "$owner.Size = New-Object System.Drawing.Size(1,1); "
+            "$owner.Show(); "
+            "$owner.Activate(); "
             "$d = New-Object System.Windows.Forms.FolderBrowserDialog; "
             "$d.Description = 'Select your photos folder'; "
             "$d.RootFolder = 'MyComputer'; "
             "$d.ShowNewFolderButton = $false; "
-            "$null = $d.ShowDialog(); "
-            "Write-Output $d.SelectedPath"
+            "$r = $d.ShowDialog($owner); "
+            "$owner.Dispose(); "
+            "if ($r -eq [System.Windows.Forms.DialogResult]::OK) { Write-Output $d.SelectedPath }"
         )
         try:
             result = subprocess.run(
-                ["powershell", "-NoProfile", "-NonInteractive", "-Command", ps],
+                ["powershell", "-NoProfile", "-Command", ps],
                 capture_output=True, text=True, timeout=60,
             )
             path = result.stdout.strip()
