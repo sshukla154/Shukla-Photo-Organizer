@@ -4,7 +4,11 @@
       "mcp__Claude_Preview__preview_start",
       "Bash(pip install *)",
       "Bash(npm install *)",
-      "Bash(node -e \"const fs=require\\('fs'\\); const f='src/App.jsx'; const t=fs.readFileSync\\(f,'utf8'\\); fs.writeFileSync\\(f,t\\);\")"
+      "Bash(node -e \"const fs=require\\('fs'\\); const f='src/App.jsx'; const t=fs.readFileSync\\(f,'utf8'\\); fs.writeFileSync\\(f,t\\);\")",
+      "Bash(powershell.exe -NoProfile -ExecutionPolicy Bypass -Command \"& { . './manage.ps1' }\")",
+      "Bash(powershell.exe -NoProfile -ExecutionPolicy Bypass -Command \"Get-Content manage.ps1 | Out-Null; Write-Host 'Syntax OK'\")",
+      "Bash(powershell -NoProfile -Command ' *)",
+      "Bash(curl -s http://127.0.0.1:8000/api/health)"
     ]
   }
 }

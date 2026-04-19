@@ -58,6 +58,30 @@ def health() -> dict:
 @app.get("/api/browse")
 def browse_folder() -> dict:
     """Open a native OS folder-picker dialog and return the chosen path."""
+    import subprocess, sys
+
+    # Windows: use PowerShell FolderBrowserDialog (no extra deps)
+    if sys.platform == "win32":
+        ps = (
+            "Add-Type -AssemblyName System.Windows.Forms; "
+            "$d = New-Object System.Windows.Forms.FolderBrowserDialog; "
+            "$d.Description = 'Select your photos folder'; "
+            "$d.RootFolder = 'MyComputer'; "
+            "$d.ShowNewFolderButton = $false; "
+            "$null = $d.ShowDialog(); "
+            "Write-Output $d.SelectedPath"
+        )
+        try:
+            result = subprocess.run(
+                ["powershell", "-NoProfile", "-NonInteractive", "-Command", ps],
+                capture_output=True, text=True, timeout=60,
+            )
+            path = result.stdout.strip()
+            return {"path": path}
+        except Exception as e:
+            raise HTTPException(500, f"Folder picker failed: {e}")
+
+    # macOS / Linux: fall back to tkinter
     try:
         import tkinter as tk
         from tkinter import filedialog
